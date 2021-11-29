@@ -1,6 +1,9 @@
 ﻿using Entities.Context;
+using Entities.Domain;
 using Entities.Models;
+using Matriculas_API.Utils;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Matriculas_API.Controllers;
 
@@ -17,46 +20,89 @@ public class AlumnosController : ControllerBase
     }
 
     [HttpGet]
-    public ActionResult<List<Alumno>> GetAll()
+    public ActionResult<List<AlumnoInformation>> GetAll()
     {
-        List<Alumno> Alumnos = new() { new Alumno() { Apellidos = "Vargas", FechaNacimiento = new DateTime(1999, 8, 17), Nombres = "Rogery", Sexo = 'M' } };
-        string alumnos = "";
+        var Alumnos = _context.Alumnos!.ToList();
+        List<AlumnoInformation> alumnosInformation = new(Alumnos!.Count);
         foreach (var alumno in Alumnos)
         {
-            alumnos += alumno.ToString();
+            alumnosInformation.Add(new(alumno));
         }
-
-        Console.WriteLine(alumnos);
-        return Alumnos;
+        return Ok(alumnosInformation);
     }
 
     [HttpGet("{id}")]
     public ActionResult<Alumno> GetById(int id)
     {
-        Console.WriteLine($"el id enviado en la ruta es => { id }");
-        if (id > 10)
-        {
-            return NotFound();
-        }
-        return new Alumno() { Apellidos = "Vargas" };
+        var Alumno = _context.Alumnos!
+                        .Include(a => a.InscripcionesCursos)!
+                            .ThenInclude(ic => ic.Curso)
+                        .Include(a => a.InscripcionesCursos)!
+                            .ThenInclude(ic => ic.Notas)
+                        .FirstOrDefault(a => a.Id == id);
+
+        if (Alumno is null) return NotFound();
+
+        return Ok(Alumno);
     }
 
     [HttpPost]
-    public ActionResult<Alumno> Create(Alumno Alumno)
+    public ActionResult<AlumnoBasicData> Create([FromBody] AlumnoBasicData alumnoBasicData)
     {
-        return new Alumno() { Apellidos = "Vargas" };
+        try
+        {
+            if (alumnoBasicData.Sexo != 'M' && alumnoBasicData.Sexo != 'F')
+                return BadRequest("La propiedad sexo no tiene un valor aceptado");
+
+            var fechaValida = DateUtils.FromStringToDatetime(alumnoBasicData.FechaNacimiento);
+
+            Alumno DataAlumno = new() { Apellidos = alumnoBasicData.Apellidos, Nombres = alumnoBasicData.Nombres, FechaNacimiento = fechaValida, Sexo = alumnoBasicData.Sexo };
+            _context.Add(DataAlumno);
+            _context.SaveChanges();
+
+            return Ok(alumnoBasicData);
+        }
+        catch (Exception exception)
+        {
+            return BadRequest(exception.Message);
+        }
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<Alumno>> Update(Alumno alumno)
+    public ActionResult<Alumno> Update(int id, [FromBody] AlumnoBasicData alumnoBasicData)
     {
-        return new Alumno();
+        var Alumno = _context.Alumnos!.FirstOrDefault(a => a.Id == id);
+        if (Alumno == null) return NotFound();
+
+        try
+        {
+            var fecha = DateUtils.FromStringToDatetime(alumnoBasicData.FechaNacimiento);
+
+            Alumno.Apellidos = alumnoBasicData.Apellidos;
+            Alumno.Sexo = alumnoBasicData.Sexo;
+            Alumno.FechaNacimiento = fecha;
+            Alumno.Nombres = alumnoBasicData.Nombres;
+
+            _context.SaveChanges();
+
+            return Ok(Alumno);
+        }
+        catch (Exception exception)
+        {
+            return BadRequest(exception.Message);
+        }
     }
 
     [HttpDelete("{id}")]
-    public async Task<ActionResult<Alumno>> Delete(int id)
+    public ActionResult<Alumno> Delete(int id)
     {
-        return new Alumno();
+        var alumno = _context.Alumnos!.FirstOrDefault(a => a.Id == id);
+        if (alumno == null) return NotFound();
+
+        _context.Alumnos!.Remove(alumno);
+        _context.SaveChanges();
+
+        return alumno;
     }
 }
 

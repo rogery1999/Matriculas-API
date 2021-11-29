@@ -18,7 +18,7 @@ public class Notas
     public float? Practica_2 { get; set; }
 
     [Column("nota_practica_3")]
-    public float? Pracitca_3 { get; set; }
+    public float? Practica_3 { get; set; }
 
     [Column("nota_parcial")]
     public float? Parcial { get; set; }

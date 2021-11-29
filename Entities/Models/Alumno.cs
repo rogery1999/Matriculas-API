@@ -28,4 +28,6 @@ public class Alumno
     public char Sexo { get; set; }
 
     public virtual ICollection<InscripcionCurso>? InscripcionesCursos { get; set; }
+
+
 }
